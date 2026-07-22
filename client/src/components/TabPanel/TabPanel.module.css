@@ -1,0 +1,210 @@
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg);
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.tabHeader {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+}
+
+.tab {
+  flex: 1;
+  padding: 8px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text-dim);
+  font-size: 13px;
+  border-radius: 8px;
+  transition: all 0.15s;
+}
+
+.tabOn {
+  background: rgba(240,192,96,0.12);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.scrollArea {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scrollArea::-webkit-scrollbar {
+  width: 5px;
+}
+.scrollArea::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.03);
+  border-radius: 3px;
+}
+.scrollArea::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 3px;
+}
+
+/* League */
+.leagueBlock {
+  margin-bottom: 12px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.leagueHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.leagueProgress {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.rank {
+  width: 16px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.clubName {
+  flex: 1;
+}
+
+.pts { color: var(--text-dim); font-size: 11px; }
+
+/* Stats */
+.playerCard {
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+  border: 1px solid transparent;
+}
+
+.playerCard.active {
+  border-color: rgba(240,192,96,0.2);
+  background: rgba(240,192,96,0.05);
+}
+
+.playerHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.playerName {
+  font-size: 14px;
+  font-weight: 600;
+  flex: 1;
+}
+
+.badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 6px;
+  color: var(--text-dim);
+}
+
+.capitalRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.capitalItem {
+  text-align: center;
+  background: rgba(255,255,255,0.03);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.capLabel { font-size: 10px; color: var(--text-dim); display: block; }
+.capVal { font-size: 12px; font-weight: 600; display: block; }
+.positive { color: var(--success); }
+.negative { color: var(--danger); }
+.debt { color: var(--danger); }
+
+.conditions {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.condDone { font-size: 10px; color: var(--success); }
+.condTodo { font-size: 10px; color: var(--text-dim); }
+
+.propertyList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.propertyTag {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(255,255,255,0.04);
+  border-left: 2px solid;
+  border-radius: 3px;
+  color: var(--text-dim);
+}
+
+.tp {
+  font-size: 11px;
+  color: var(--info);
+  margin-top: 4px;
+}
+
+/* Log */
+.logItem {
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.empty {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 20px;
+  font-size: 13px;
+}

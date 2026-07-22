@@ -1,0 +1,60 @@
+.container {
+  position: relative;
+  width: 100%;
+  padding: 0 2px;
+}
+
+.titleBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0px 6px 2px;
+}
+
+.gameTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.round {
+  font-size: 11px;
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.06);
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.row {
+  display: flex;
+  gap: 1px;
+}
+
+.empty {
+  width: 35px;
+  height: 35px;
+}
+
+.cellWrapper {
+  position: relative;
+  width: 35px;
+  height: 35px;
+}
+
+.tokens {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1px;
+  z-index: 5;
+}

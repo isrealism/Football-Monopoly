@@ -1,0 +1,14 @@
+.inline {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.btn {
+  padding: 2px 6px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-dim);
+  font-size: 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.08);
+}

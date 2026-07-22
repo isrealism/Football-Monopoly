@@ -1,0 +1,137 @@
+.container {
+  background: var(--bg-card);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding: 8px 12px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  flex-shrink: 0;
+}
+
+.currentPlayer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 600;
+  flex: 1;
+}
+
+.waitingBadge {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: rgba(255,255,255,0.08);
+  color: var(--text-dim);
+  border-radius: 6px;
+}
+
+.botBadge {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: rgba(240,192,96,0.15);
+  color: var(--accent);
+  border-radius: 6px;
+  animation: blink 1s ease-in-out infinite alternate;
+}
+
+.kickBtn {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: rgba(233,69,96,0.12);
+  color: var(--danger);
+  border-radius: 6px;
+  border: 1px solid rgba(233,69,96,0.2);
+  margin-left: auto;
+}
+
+@keyframes blink {
+  from { opacity: 1; }
+  to { opacity: 0.4; }
+}
+
+.diceDisplay {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.diceFace {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.diceNum {
+  font-size: 16px;
+  color: var(--text-dim);
+  font-weight: 700;
+}
+
+.actionPrompt {
+  display: block;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.actionBtns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.actionBtns .primaryBtn,
+.actionBtns .secondaryBtn {
+  margin-left: 0;
+  display: inline-flex;
+}
+
+.primaryBtn {
+  display: block;
+  width: auto;
+  min-width: 80px;
+  margin-left: auto;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, var(--accent), #e94560);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: 10px;
+  transition: opacity 0.15s;
+}
+
+.primaryBtn:disabled {
+  opacity: 0.4;
+}
+
+.secondaryBtn {
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  font-size: 13px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.secondaryBtn:disabled {
+  opacity: 0.4;
+}
+
+.waiting {
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: center;
+  display: block;
+}

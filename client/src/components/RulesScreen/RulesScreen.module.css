@@ -1,0 +1,80 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 360px;
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.08);
+  position: relative;
+}
+
+.closeBtn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  font-size: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.title { font-size: 20px; color: var(--accent); text-align: center; margin-bottom: 4px; }
+.pageTitle { font-size: 15px; color: var(--text); text-align: center; margin-bottom: 12px; }
+
+.text {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.8;
+  white-space: pre-line;
+  min-height: 140px;
+}
+
+.nav {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+}
+
+.dotOn { background: var(--accent); }
+
+.arrows {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.arrows button {
+  padding: 6px 12px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.arrows button:disabled { opacity: 0.3; }

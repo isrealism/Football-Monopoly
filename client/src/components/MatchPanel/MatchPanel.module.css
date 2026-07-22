@@ -1,0 +1,178 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+
+.panel {
+  width: 100%;
+  max-width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border-radius: 14px;
+  border: 1px solid rgba(240,192,96,0.2);
+  padding: 16px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.forfeitRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.forfeitBtn {
+  padding: 4px 10px;
+  background: rgba(233,69,96,0.12);
+  color: var(--danger);
+  font-size: 11px;
+  border-radius: 6px;
+  border: 1px solid rgba(233,69,96,0.2);
+}
+
+.title {
+  font-size: 15px;
+  color: var(--accent);
+}
+
+.scoreboard {
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.vs {
+  color: var(--text-dim);
+  font-size: 18px;
+}
+
+.arena {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sideName {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.playerBtn {
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  font-size: 12px;
+  text-align: left;
+  color: var(--text);
+}
+
+.playerBtn:disabled {
+  opacity: 0.4;
+}
+
+.playerBtn.selected {
+  border-color: var(--accent);
+  background: rgba(240,192,96,0.15);
+}
+
+.pName {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.pAttrs {
+  display: block;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.diceResult {
+  text-align: center;
+  font-size: 12px;
+}
+
+.diceIcon { font-size: 32px; display: block; }
+.attrLabel { display: block; color: var(--accent); }
+
+.revealCard {
+  padding: 6px 10px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.revealCard.winner {
+  border: 1px solid var(--accent);
+  background: rgba(240,192,96,0.12);
+}
+
+.rVal {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.actions {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.confirmBtn {
+  padding: 12px 32px;
+  background: linear-gradient(135deg, var(--accent), #e94560);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: 10px;
+}
+
+.waiting {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.roundLog {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+.roundItem {
+  padding: 2px 6px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 4px;
+}
