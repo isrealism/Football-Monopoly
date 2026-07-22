@@ -5,17 +5,24 @@ import { writeFile, readFile } from 'fs/promises';
 import { createRoom, joinRoom, addBot, removeBot, removePlayer, lobbyRemovePlayer, kickPlayer, markTurnStart, startGame, handleAction, getGameState, getRoomState } from './RoomManager.js';
 import { gameReducer, createEmptyState } from './gameEngine.js';
 import { isBotTurn, botDecide } from './botLogic.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const PORT = parseInt(process.env.PORT || '3001');
 const app = express();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CLIENT_DIST = path.resolve(__dirname, '../../client/dist');
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
 const connections = new Map<WebSocket, { roomCode: string; playerId: number }>();
 const botTimers = new Map<string, ReturnType<typeof setTimeout>>(); // prevent duplicate bot steps
 
-app.use(express.static('../client/dist'));
+app.use(express.static(CLIENT_DIST));
 app.get('/health', (_req, res) => res.json({ ok: true }));
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(CLIENT_DIST, 'index.html'));
+});
 
 wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
