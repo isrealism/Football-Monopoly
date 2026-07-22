@@ -28,6 +28,8 @@ export interface Room {
   phase: 'lobby' | 'playing' | 'finished';
   createdAt: number;
   turnStartTime: number;
+  tokens: Record<number, string>;
+  suspendedAt: Record<number, number>;
 }
 
 const rooms = new Map<string, Room>();
@@ -50,9 +52,10 @@ function ensureUniqueColor(color: string, usedColors: Set<string>): string {
   return available || PLAYER_COLORS[usedColors.size % PLAYER_COLORS.length];
 }
 
-export function createRoom(playerName: string, playerColor: string): { room: Room; playerId: number } {
+export function createRoom(playerName: string, playerColor: string): { room: Room; playerId: number; token: string } {
   const code = genRoomCode();
   const playerId = 0;
+  const token = crypto.randomUUID();
   const room: Room = {
     code,
     hostId: 0,
@@ -61,20 +64,24 @@ export function createRoom(playerName: string, playerColor: string): { room: Roo
     phase: 'lobby',
     createdAt: Date.now(),
     turnStartTime: 0,
+    tokens: { 0: token },
+    suspendedAt: {},
   };
   rooms.set(code, room);
-  return { room, playerId };
+  return { room, playerId, token };
 }
 
-export function joinRoom(code: string, playerName: string, playerColor: string): { room: Room; playerId: number } | null {
+export function joinRoom(code: string, playerName: string, playerColor: string): { room: Room; playerId: number; token: string } | null {
   const room = rooms.get(code.toUpperCase());
   if (!room || room.phase !== 'lobby') return null;
   if (room.players.length >= 4) return null;
 
   const usedColors = new Set(room.players.map(p => p.color));
   const playerId = room.players.length;
+  const token = crypto.randomUUID();
   room.players.push({ id: playerId, name: playerName, color: ensureUniqueColor(playerColor, usedColors), isConnected: true, isAI: false });
-  return { room, playerId };
+  room.tokens[playerId] = token;
+  return { room, playerId, token };
 }
 
 export function addBot(roomCode: string): Room | null {
@@ -103,19 +110,47 @@ export function removeBot(roomCode: string, botId: number): Room | null {
   return room;
 }
 
-export function removePlayer(roomCode: string, playerId: number): Room | null {
+export function hardRemovePlayer(roomCode: string, playerId: number): Room | null {
   const room = rooms.get(roomCode);
   if (!room) return null;
   const idx = room.players.findIndex(p => p.id === playerId);
   if (idx < 0) return null;
   const wasHost = room.players[idx].id === room.hostId;
   room.players.splice(idx, 1);
+  delete room.tokens[playerId];
+  delete room.suspendedAt[playerId];
   if (room.players.length === 0) {
     rooms.delete(roomCode);
     return null;
   }
-  // Reassign host if the host left
   if (wasHost) room.hostId = room.players[0].id;
+  return room;
+}
+
+export function suspendPlayer(roomCode: string, playerId: number): Room | null {
+  const room = rooms.get(roomCode);
+  if (!room) return null;
+  const player = room.players.find(p => p.id === playerId);
+  if (!player) return null;
+
+  if (room.phase === 'lobby') {
+    return hardRemovePlayer(roomCode, playerId);
+  }
+
+  player.isConnected = false;
+  room.suspendedAt[playerId] = Date.now();
+  return room;
+}
+
+export function resumePlayer(roomCode: string, playerId: number, token: string): Room | null {
+  const room = rooms.get(roomCode);
+  if (!room) return null;
+  if (room.tokens[playerId] !== token) return null;
+  const player = room.players.find(p => p.id === playerId);
+  if (!player) return null;
+
+  player.isConnected = true;
+  delete room.suspendedAt[playerId];
   return room;
 }
 

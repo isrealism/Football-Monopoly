@@ -2,7 +2,12 @@ import express from 'express';
 import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { writeFile, readFile } from 'fs/promises';
-import { createRoom, joinRoom, addBot, removeBot, removePlayer, lobbyRemovePlayer, kickPlayer, markTurnStart, startGame, handleAction, getGameState, getRoomState } from './RoomManager.js';
+import {
+  createRoom, joinRoom, addBot, removeBot,
+  suspendPlayer, hardRemovePlayer, resumePlayer,
+  lobbyRemovePlayer, kickPlayer, markTurnStart,
+  startGame, handleAction, getGameState, getRoomState
+} from './RoomManager.js';
 import { gameReducer, createEmptyState } from './gameEngine.js';
 import { isBotTurn, botDecide } from './botLogic.js';
 import path from 'path';
@@ -36,7 +41,7 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     const conn = connections.get(ws);
     if (conn) {
-      const room = removePlayer(conn.roomCode, conn.playerId);
+      const room = suspendPlayer(conn.roomCode, conn.playerId);
       connections.delete(ws);
       if (room) broadcast(conn.roomCode, { type: 'ROOM_STATE', room: sanitizeRoom(room) });
     }
@@ -46,16 +51,16 @@ wss.on('connection', (ws) => {
 function handleMessage(ws: WebSocket, msg: any) {
   switch (msg.type) {
     case 'CREATE_ROOM': {
-      const { room, playerId } = createRoom(msg.playerName || '玩家', msg.playerColor || '#ff69b4');
+      const { room, playerId, token } = createRoom(msg.playerName || '玩家', msg.playerColor || '#ff69b4');
       connections.set(ws, { roomCode: room.code, playerId });
-      send(ws, { type: 'ROOM_CREATED', roomCode: room.code, playerId, room: sanitizeRoom(room) });
+      send(ws, { type: 'ROOM_CREATED', roomCode: room.code, playerId, token, room: sanitizeRoom(room) });
       break;
     }
     case 'JOIN_ROOM': {
       const result = joinRoom(msg.roomCode, msg.playerName || '玩家', msg.playerColor || '#f5f5f5');
       if (!result) { send(ws, { type: 'ERROR', message: '房间不存在或已满' }); return; }
       connections.set(ws, { roomCode: result.room.code, playerId: result.playerId });
-      send(ws, { type: 'ROOM_JOINED', roomCode: result.room.code, playerId: result.playerId, room: sanitizeRoom(result.room) });
+      send(ws, { type: 'ROOM_JOINED', roomCode: result.room.code, playerId: result.playerId, token: result.token, room: sanitizeRoom(result.room) });
       broadcast(result.room.code, { type: 'ROOM_STATE', room: sanitizeRoom(result.room) }, ws);
       break;
     }
@@ -160,10 +165,28 @@ function handleMessage(ws: WebSocket, msg: any) {
       break;
     }
 
+    case 'REJOIN': {
+      const room = resumePlayer(msg.roomCode, msg.playerId, msg.token);
+      if (!room) {
+        send(ws, { type: 'REJOIN_FAILED' });
+        return;
+      }
+      connections.set(ws, { roomCode: room.code, playerId: msg.playerId });
+      send(ws, {
+        type: 'REJOIN_OK',
+        roomCode: room.code,
+        playerId: msg.playerId,
+        room: sanitizeRoom(room),
+        state: room.gameState,
+      });
+      broadcast(room.code, { type: 'ROOM_STATE', room: sanitizeRoom(room) }, ws);
+      break;
+    }
+
     case 'LEAVE_ROOM': {
       const conn = connections.get(ws);
       if (conn) {
-        const room = removePlayer(conn.roomCode, conn.playerId);
+        const room = hardRemovePlayer(conn.roomCode, conn.playerId);
         connections.delete(ws);
         if (room) {
           broadcast(conn.roomCode, { type: 'ROOM_STATE', room: sanitizeRoom(room) });

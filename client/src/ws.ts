@@ -1,17 +1,27 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { GameState } from './types';
 
-// Determine WebSocket URL based on environment
 const WS_URL = (() => {
   if (typeof window === 'undefined') return '';
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  // In dev, Vite proxies /ws to server
-  // In production, connect to same host on the WS port or same origin
   if (import.meta.env.DEV) {
     return `${proto}//${window.location.hostname}:3001`;
   }
   return `${proto}//${window.location.host}`;
 })();
+
+const SESSION_KEY = 'monopoly_session';
+type Session = { roomCode: string; playerId: number; token: string };
+
+function saveSession(s: Session) {
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch {}
+}
+function loadSession(): Session | null {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch { return null; }
+}
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch {}
+}
 
 export interface RoomInfo {
   code: string;
@@ -52,29 +62,36 @@ export function useWebSocket() {
 
     ws.onopen = () => {
       setState(s => ({ ...s, status: 'connected' }));
+      const session = loadSession();
+      if (session) {
+        ws.send(JSON.stringify({
+          type: 'REJOIN',
+          roomCode: session.roomCode,
+          playerId: session.playerId,
+          token: session.token,
+        }));
+      }
     };
 
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
         handleServerMessage(msg);
-      } catch { /* ignore parse errors */ }
+      } catch {}
     };
 
     ws.onclose = () => {
       setState(s => ({ ...s, status: 'disconnected' }));
-      // Auto-reconnect after 3s
       reconnectTimer.current = setTimeout(connect, 3000);
     };
 
-    ws.onerror = () => {
-      // ws.onclose will fire after this
-    };
+    ws.onerror = () => {};
   }, []);
 
   const handleServerMessage = useCallback((msg: any) => {
     switch (msg.type) {
       case 'ROOM_CREATED':
+        saveSession({ roomCode: msg.roomCode, playerId: msg.playerId, token: msg.token });
         setState(s => ({
           ...s,
           status: 'lobby',
@@ -85,12 +102,36 @@ export function useWebSocket() {
         break;
 
       case 'ROOM_JOINED':
+        saveSession({ roomCode: msg.roomCode, playerId: msg.playerId, token: msg.token });
         setState(s => ({
           ...s,
           status: 'lobby',
           roomCode: msg.roomCode,
           playerId: msg.playerId,
           room: msg.room,
+        }));
+        break;
+
+      case 'REJOIN_OK':
+        setState(s => ({
+          ...s,
+          status: msg.state ? 'playing' : 'lobby',
+          roomCode: msg.roomCode,
+          playerId: msg.playerId,
+          room: msg.room,
+          gameState: msg.state,
+        }));
+        break;
+
+      case 'REJOIN_FAILED':
+        clearSession();
+        setState(s => ({
+          ...s,
+          status: 'connected',
+          roomCode: null,
+          playerId: null,
+          room: null,
+          gameState: null,
         }));
         break;
 
@@ -122,6 +163,7 @@ export function useWebSocket() {
         break;
 
       case 'KICKED':
+        clearSession();
         setState({
           status: 'connected',
           gameState: null,
@@ -135,7 +177,6 @@ export function useWebSocket() {
 
       case 'ERROR':
         setState(s => ({ ...s, error: msg.message }));
-        // Clear error after 5s
         setTimeout(() => setState(s => ({ ...s, error: null })), 5000);
         break;
     }
@@ -153,6 +194,7 @@ export function useWebSocket() {
 
   const leaveRoom = useCallback(() => {
     send({ type: 'LEAVE_ROOM' });
+    clearSession();
     setState({
       status: 'connected',
       gameState: null,
@@ -164,10 +206,18 @@ export function useWebSocket() {
     });
   }, [send]);
 
-  // Connect on mount
   useEffect(() => {
     connect();
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && wsRef.current?.readyState !== WebSocket.OPEN) {
+        connect();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
     return () => {
+      document.removeEventListener('visibilitychange', onVisible);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
     };
