@@ -1,5 +1,7 @@
 import type { ActionOption, GameState, PlayerInstance } from './types.js';
 import { existsSync, readFileSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { BOARD_CELLS } from './data/board.js';
 import { ALL_PLAYERS, ATTR_NAMES, getPlayerCard } from './data/players.js';
 import { calcCapital } from './utils/gameLogic.js';
@@ -18,9 +20,11 @@ interface MatchPickDecision {
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_MODEL = 'gpt-4o-mini';
 const DEFAULT_GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
-const DEFAULT_GEMINI_MODEL = 'gemini-1.5-flash';
+const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 let envLoaded = false;
 let startupLogged = false;
+let loadedEnvFiles: string[] = [];
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function getConfig() {
   loadLocalEnv();
@@ -58,9 +62,25 @@ function getGeminiBaseUrl(): string {
 function loadLocalEnv() {
   if (envLoaded) return;
   envLoaded = true;
-  if (!existsSync('.env')) return;
 
-  const lines = readFileSync('.env', 'utf-8').split(/\r?\n/);
+  for (const envPath of getEnvPaths()) {
+    if (!existsSync(envPath)) continue;
+    loadEnvFile(envPath);
+  }
+}
+
+function getEnvPaths() {
+  return [
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(process.cwd(), 'server/.env'),
+    path.resolve(__dirname, '../.env'),
+    path.resolve(__dirname, '../../server/.env'),
+  ].filter((p, idx, all) => all.indexOf(p) === idx);
+}
+
+function loadEnvFile(envPath: string) {
+  const lines = readFileSync(envPath, 'utf-8').split(/\r?\n/);
+  loadedEnvFiles.push(envPath);
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
@@ -81,10 +101,10 @@ export function logLlmBotStatus() {
   const config = getConfig();
   startupLogged = true;
   if (!config.enabled) {
-    console.log(`[llm-bot] disabled. provider=${config.provider}, apiKey=${config.apiKey ? 'set' : 'missing'}`);
+    console.log(`[llm-bot] disabled. provider=${config.provider}, apiKey=${config.apiKey ? 'set' : 'missing'}, envFiles=${loadedEnvFiles.length ? loadedEnvFiles.join(',') : 'none'}`);
     return;
   }
-  console.log(`[llm-bot] enabled. provider=${config.provider}, model=${config.model}, baseUrl=${config.baseUrl}, timeoutMs=${config.timeoutMs}`);
+  console.log(`[llm-bot] enabled. provider=${config.provider}, model=${config.model}, baseUrl=${config.baseUrl}, timeoutMs=${config.timeoutMs}, envFiles=${loadedEnvFiles.length ? loadedEnvFiles.join(',') : 'none'}`);
 }
 
 export async function llmDecideAction(state: GameState): Promise<string> {
