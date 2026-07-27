@@ -171,7 +171,7 @@ export function botDecide(state: GameState): string {
 }
 
 /** Find which player is the current bot (current turn + isAI) */
-function getBotPlayerId(state: GameState): number | undefined {
+export function getBotPlayerId(state: GameState): number | undefined {
   const cp = state.players[state.currentPlayerIndex];
   if (cp?.isAI) return cp.id;
 

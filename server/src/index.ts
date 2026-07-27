@@ -9,7 +9,8 @@ import {
   startGame, handleAction, getGameState, getRoomState
 } from './RoomManager.js';
 import { gameReducer, createEmptyState } from './gameEngine.js';
-import { isBotTurn, botDecide } from './botLogic.js';
+import { getBotPlayerId, isBotTurn } from './botLogic.js';
+import { llmDecideAction, llmPickMatchPlayer, logLlmBotStatus } from './llmBot.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -22,6 +23,7 @@ const wss = new WebSocketServer({ server });
 
 const connections = new Map<WebSocket, { roomCode: string; playerId: number }>();
 const botTimers = new Map<string, ReturnType<typeof setTimeout>>(); // prevent duplicate bot steps
+const botInFlight = new Set<string>();
 
 app.use(express.static(CLIENT_DIST));
 app.get('/health', (_req, res) => res.json({ ok: true }));
@@ -207,12 +209,15 @@ function scheduleBotStep(roomCode: string, delayMs: number) {
 
   const timer = setTimeout(() => {
     botTimers.delete(roomCode);
-    botStep(roomCode);
+    void botStep(roomCode);
   }, delayMs);
   botTimers.set(roomCode, timer);
 }
 
-function botStep(roomCode: string) {
+async function botStep(roomCode: string) {
+  if (botInFlight.has(roomCode)) return;
+  botInFlight.add(roomCode);
+  try {
   const state = getGameState(roomCode);
   if (!state || state.phase !== 'playing') return;
   
@@ -222,13 +227,16 @@ function botStep(roomCode: string) {
     const isHomeBot = state.players[ms.homePlayerId]?.isAI;
     const isAwayBot = state.players[ms.awayPlayerId]?.isAI;
 
-    // Both bots, neither picked → pick both at the same time immediately
+    // Both bots, neither picked → let home pick first, then schedule away with updated state
     if (isHomeBot && isAwayBot && !ms.homePick && !ms.awayPick) {
       const homeAvail = ms.homeSquad.filter((uid: string) => !ms.homeUsed.includes(uid));
-      const awayAvail = ms.awaySquad.filter((uid: string) => !ms.awayUsed.includes(uid));
-      if (homeAvail.length > 0 && awayAvail.length > 0) {
-        handleAction(roomCode, ms.homePlayerId, { type: 'PICK_MATCH_PLAYER', instanceUid: homeAvail[Math.floor(Math.random() * homeAvail.length)], side: 'home' });
-        handleAction(roomCode, ms.awayPlayerId, { type: 'PICK_MATCH_PLAYER', instanceUid: awayAvail[Math.floor(Math.random() * awayAvail.length)], side: 'away' });
+      if (homeAvail.length > 0) {
+        const pick = await llmPickMatchPlayer(state, 'home');
+        handleAction(roomCode, ms.homePlayerId, {
+          type: 'PICK_MATCH_PLAYER',
+          instanceUid: pick?.instanceUid || homeAvail[Math.floor(Math.random() * homeAvail.length)],
+          side: 'home',
+        });
         broadcastState(roomCode);
         scheduleBotStep(roomCode, 300);
         return;
@@ -239,7 +247,12 @@ function botStep(roomCode: string) {
     if (isHomeBot && !ms.homePick) {
       const avail = ms.homeSquad.filter((uid: string) => !ms.homeUsed.includes(uid));
       if (avail.length > 0) {
-        handleAction(roomCode, ms.homePlayerId, { type: 'PICK_MATCH_PLAYER', instanceUid: avail[Math.floor(Math.random() * avail.length)], side: 'home' });
+        const pick = await llmPickMatchPlayer(state, 'home');
+        handleAction(roomCode, ms.homePlayerId, {
+          type: 'PICK_MATCH_PLAYER',
+          instanceUid: pick?.instanceUid || avail[Math.floor(Math.random() * avail.length)],
+          side: 'home',
+        });
         broadcastState(roomCode);
         scheduleBotStep(roomCode, 300);
         return;
@@ -250,7 +263,12 @@ function botStep(roomCode: string) {
     if (isAwayBot && ms.homePick && !ms.awayPick) {
       const avail = ms.awaySquad.filter((uid: string) => !ms.awayUsed.includes(uid));
       if (avail.length > 0) {
-        handleAction(roomCode, ms.awayPlayerId, { type: 'PICK_MATCH_PLAYER', instanceUid: avail[Math.floor(Math.random() * avail.length)], side: 'away' });
+        const pick = await llmPickMatchPlayer(state, 'away');
+        handleAction(roomCode, ms.awayPlayerId, {
+          type: 'PICK_MATCH_PLAYER',
+          instanceUid: pick?.instanceUid || avail[Math.floor(Math.random() * avail.length)],
+          side: 'away',
+        });
         broadcastState(roomCode);
         scheduleBotStep(roomCode, 300);
         return;
@@ -359,8 +377,9 @@ function botStep(roomCode: string) {
     }
 
     // Multi-option: bot decides, highlight, then execute (5s safety timeout)
-    const action = botDecide(state);
-    const botPlayer = state.players[state.currentPlayerIndex];
+    const action = await llmDecideAction(state);
+    const botId = getBotPlayerId(state) ?? state.currentPlayerIndex;
+    const botPlayer = state.players[botId];
     const color = botPlayer?.color || '#f0c060';
     broadcast(roomCode, { type: 'STATE_UPDATE', state, _botHighlight: { action, color } });
 
@@ -382,13 +401,16 @@ function botStep(roomCode: string) {
     botTimers.set(roomCode, timer);
     return;
   }
+  } finally {
+    botInFlight.delete(roomCode);
+  }
 }
 
 /** Execute a single bot action string */
 function stepBotAction(roomCode: string, action: string) {
   const state = getGameState(roomCode);
   if (!state) return;
-  const botId = state.players[state.currentPlayerIndex]?.id;
+  const botId = getBotPlayerId(state) ?? state.players[state.currentPlayerIndex]?.id;
   if (botId === undefined) return;
   const pa = state.pendingAction;
   const cellId = pa?.cellId;
@@ -435,4 +457,5 @@ function sanitizeRoom(room: any): any {
 server.listen(PORT, () => {
   console.log(`⚽ Football Monopoly Server running on port ${PORT}`);
   console.log(`   Health check: http://localhost:${PORT}/health`);
+  logLlmBotStatus();
 });
