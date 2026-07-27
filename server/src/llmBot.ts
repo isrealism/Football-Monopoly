@@ -331,39 +331,60 @@ function getEnabledOptions(options: ActionOption[]) {
   return enabled.length > 0 ? enabled : options;
 }
 
+function getPlayers(state: GameState) {
+  return Array.isArray(state.players) ? state.players : [];
+}
+
+function getInstances(state: GameState) {
+  return Array.isArray(state.instances) ? state.instances : [];
+}
+
+function getCellOwners(state: GameState) {
+  return state.cellOwners && typeof state.cellOwners === 'object' ? state.cellOwners : {};
+}
+
 function buildGameSummary(state: GameState, botId: number) {
-  const bot = state.players[botId];
+  const players = getPlayers(state);
+  const bot = players[botId];
   return {
     turn: state.turn,
     bot: summarizePlayer(state, botId),
     currentPlayer: summarizePlayer(state, state.currentPlayerIndex),
-    opponents: state.players.filter(p => p.id !== botId).map(p => summarizePlayer(state, p.id)),
+    opponents: players.filter(p => p.id !== botId).map(p => summarizePlayer(state, p.id)),
     currentCell: bot ? summarizeCell(state, bot.position) : null,
     ownedClubs: summarizeOwnedClubs(state, botId),
     transferBid: state.transferBidState ? {
       card: summarizeCard(state.transferBidState.cardId),
       currentBid: state.transferBidState.currentBid,
       currentBidder: state.transferBidState.currentBidderId !== null
-        ? state.players[state.transferBidState.currentBidderId]?.name
+        ? players[state.transferBidState.currentBidderId]?.name
         : null,
       isSell: state.transferBidState.isSell,
     } : null,
-    leagueTables: state.leagueTables.filter(Boolean).map(t => ({
-      level: t.level,
-      matchesPlayed: t.matchesPlayed,
-      matchesNeeded: t.matchesNeeded,
-      leaders: [...t.entries].sort((a, b) => b.points - a.points).slice(0, 4).map(e => ({
-        club: BOARD_CELLS[e.clubId]?.name,
-        owner: state.players[e.ownerId]?.name,
-        points: e.points,
-      })),
-    })),
-    recentLog: state.log.slice(0, 6),
+    leagueTables: summarizeLeagueTables(state),
+    recentLog: Array.isArray(state.log) ? state.log.slice(0, 6) : [],
   };
 }
 
+function summarizeLeagueTables(state: GameState) {
+  const tables = Array.isArray(state.leagueTables) ? state.leagueTables : [];
+  return tables.filter(Boolean).map(t => {
+    const entries = Array.isArray(t.entries) ? t.entries : [];
+    return {
+      level: t.level,
+      matchesPlayed: t.matchesPlayed,
+      matchesNeeded: t.matchesNeeded,
+      leaders: [...entries].sort((a, b) => b.points - a.points).slice(0, 4).map(e => ({
+        club: BOARD_CELLS[e.clubId]?.name,
+        owner: getPlayers(state)[e.ownerId]?.name,
+        points: e.points,
+      })),
+    };
+  });
+}
+
 function summarizePlayer(state: GameState, playerId: number) {
-  const p = state.players[playerId];
+  const p = getPlayers(state)[playerId];
   if (!p) return null;
   return {
     id: p.id,
@@ -375,19 +396,19 @@ function summarizePlayer(state: GameState, playerId: number) {
     position: p.position,
     cell: BOARD_CELLS[p.position]?.name,
     isBankrupt: p.isBankrupt,
-    clubCount: Object.values(state.cellOwners).filter(ownerId => ownerId === p.id).length,
-    squadSize: state.instances.filter(i => i.ownerId === p.id).length,
+    clubCount: Object.values(getCellOwners(state)).filter(ownerId => ownerId === p.id).length,
+    squadSize: getInstances(state).filter(i => i.ownerId === p.id).length,
     trainingPoints: state.trainingPoints[p.id] || 0,
     hasUCLTitle: !!state.hasUCLTitle[p.id],
   };
 }
 
 function summarizeOwnedClubs(state: GameState, playerId: number) {
-  return Object.entries(state.cellOwners)
+  return Object.entries(getCellOwners(state))
     .filter(([, ownerId]) => ownerId === playerId)
     .map(([cid]) => {
       const id = parseInt(cid, 10);
-      const squad = state.instances.filter(i => i.clubId === id);
+      const squad = getInstances(state).filter(i => i.clubId === id);
       return {
         ...summarizeCell(state, id),
         squadSize: squad.length,
@@ -399,7 +420,7 @@ function summarizeOwnedClubs(state: GameState, playerId: number) {
 function summarizeCell(state: GameState, cellId: number) {
   const cell = BOARD_CELLS[cellId];
   if (!cell) return null;
-  const ownerId = state.cellOwners[cellId];
+  const ownerId = getCellOwners(state)[cellId];
   return {
     id: cell.id,
     name: cell.name,
@@ -407,12 +428,12 @@ function summarizeCell(state: GameState, cellId: number) {
     league: cell.league ?? null,
     price: cell.price ?? null,
     level: state.cellLevels[cellId] || null,
-    owner: ownerId !== undefined ? state.players[ownerId]?.name : null,
+    owner: ownerId !== undefined ? getPlayers(state)[ownerId]?.name : null,
   };
 }
 
 function summarizeInstance(state: GameState, uid: string) {
-  const inst = state.instances.find(i => i.uid === uid);
+  const inst = getInstances(state).find(i => i.uid === uid);
   if (!inst) return null;
   const card = getPlayerCard(inst.cardId);
   if (!card) return null;
