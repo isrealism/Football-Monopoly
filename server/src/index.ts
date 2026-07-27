@@ -25,6 +25,14 @@ const connections = new Map<WebSocket, { roomCode: string; playerId: number }>()
 const botTimers = new Map<string, ReturnType<typeof setTimeout>>(); // prevent duplicate bot steps
 const botInFlight = new Set<string>();
 
+process.on('unhandledRejection', (reason) => {
+  console.error('[server] unhandled rejection', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[server] uncaught exception', err);
+});
+
 app.use(express.static(CLIENT_DIST));
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('*', (_req, res) => {
@@ -401,6 +409,9 @@ async function botStep(roomCode: string) {
     botTimers.set(roomCode, timer);
     return;
   }
+  } catch (err) {
+    const msg = err instanceof Error ? err.stack || err.message : String(err);
+    console.error(`[bot] step failed in room ${roomCode}. ${msg}`);
   } finally {
     botInFlight.delete(roomCode);
   }
@@ -408,21 +419,26 @@ async function botStep(roomCode: string) {
 
 /** Execute a single bot action string */
 function stepBotAction(roomCode: string, action: string) {
-  const state = getGameState(roomCode);
-  if (!state) return;
-  const botId = getBotPlayerId(state) ?? state.players[state.currentPlayerIndex]?.id;
-  if (botId === undefined) return;
-  const pa = state.pendingAction;
-  const cellId = pa?.cellId;
+  try {
+    const state = getGameState(roomCode);
+    if (!state) return;
+    const botId = getBotPlayerId(state) ?? state.players[state.currentPlayerIndex]?.id;
+    if (botId === undefined) return;
+    const pa = state.pendingAction;
+    const cellId = pa?.cellId;
 
-  if (action === 'END_TURN') {
-    handleAction(roomCode, botId, { type: 'END_TURN' });
-  } else if (action === 'ROLL_DICE') {
-    handleAction(roomCode, botId, { type: 'START_DICE_ANIMATION' });
-  } else if (action === 'OK') {
-    handleAction(roomCode, botId, { type: 'CHOOSE_ACTION', action: 'OK' });
-  } else {
-    handleAction(roomCode, botId, { type: 'CHOOSE_ACTION', action, cellId });
+    if (action === 'END_TURN') {
+      handleAction(roomCode, botId, { type: 'END_TURN' });
+    } else if (action === 'ROLL_DICE') {
+      handleAction(roomCode, botId, { type: 'START_DICE_ANIMATION' });
+    } else if (action === 'OK') {
+      handleAction(roomCode, botId, { type: 'CHOOSE_ACTION', action: 'OK' });
+    } else {
+      handleAction(roomCode, botId, { type: 'CHOOSE_ACTION', action, cellId });
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.stack || err.message : String(err);
+    console.error(`[bot] action failed in room ${roomCode}. action=${action}. ${msg}`);
   }
 }
 

@@ -35,7 +35,7 @@ function getConfig() {
     enabled: !explicitlyDisabled && !!apiKey,
     apiKey,
     baseUrl: (isGemini
-      ? process.env.GEMINI_BASE_URL || process.env.LLM_BASE_URL || DEFAULT_GEMINI_BASE_URL
+      ? getGeminiBaseUrl()
       : process.env.LLM_BASE_URL || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL
     ).replace(/\/$/, ''),
     model: isGemini
@@ -43,6 +43,16 @@ function getConfig() {
       : process.env.LLM_MODEL || process.env.OPENAI_MODEL || DEFAULT_MODEL,
     timeoutMs: Math.max(500, parseInt(process.env.LLM_BOT_TIMEOUT_MS || '2500', 10)),
   };
+}
+
+function getGeminiBaseUrl(): string {
+  const configured = process.env.GEMINI_BASE_URL;
+  if (!configured) return DEFAULT_GEMINI_BASE_URL;
+  if (configured.includes('generativelanguage.googleapis.com')) return configured;
+  if (process.env.GEMINI_ALLOW_CUSTOM_BASE_URL === '1') return configured;
+
+  console.warn(`[llm-bot] ignoring non-Google GEMINI_BASE_URL=${configured}. Use GEMINI_ALLOW_CUSTOM_BASE_URL=1 to override.`);
+  return DEFAULT_GEMINI_BASE_URL;
 }
 
 function loadLocalEnv() {
@@ -79,30 +89,34 @@ export function logLlmBotStatus() {
 
 export async function llmDecideAction(state: GameState): Promise<string> {
   const fallback = botDecide(state);
-  const pa = state.pendingAction;
-  if (!pa) return fallback;
+  try {
+    const pa = state.pendingAction;
+    if (!pa) return fallback;
 
-  const enabled = getEnabledOptions(pa.options);
-  if (enabled.length === 0) return fallback;
+    const enabled = getEnabledOptions(pa.options);
+    if (enabled.length === 0) return fallback;
 
-  const botId = getBotPlayerId(state);
-  if (botId === undefined) return fallback;
+    const botId = getBotPlayerId(state);
+    if (botId === undefined) return fallback;
 
-  const decision = await callLlm<LlmDecision>('action', {
-    instruction: '选择一个当前最有利的动作。只能返回 options 里某个 action 的原文。',
-    game: buildGameSummary(state, botId),
-    pendingAction: {
-      type: pa.type,
-      message: pa.message,
-      cell: pa.cellId !== undefined ? summarizeCell(state, pa.cellId) : null,
-      options: enabled.map(o => ({ label: o.label, action: o.action, cost: o.cost ?? null })),
-    },
-  });
+    const decision = await callLlm<LlmDecision>('action', {
+      instruction: '选择一个当前最有利的动作。只能返回 options 里某个 action 的原文。',
+      game: buildGameSummary(state, botId),
+      pendingAction: {
+        type: pa.type,
+        message: pa.message,
+        cell: pa.cellId !== undefined ? summarizeCell(state, pa.cellId) : null,
+        options: enabled.map(o => ({ label: o.label, action: o.action, cost: o.cost ?? null })),
+      },
+    });
 
-  const action = decision?.action;
-  if (action && enabled.some(o => o.action === action)) {
-    logDecision(state, botId, action, decision.reason);
-    return action;
+    const action = decision?.action;
+    if (action && enabled.some(o => o.action === action)) {
+      logDecision(state, botId, action, decision.reason);
+      return action;
+    }
+  } catch (err) {
+    logFallback('action', err);
   }
   return fallback;
 }
@@ -111,43 +125,47 @@ export async function llmPickMatchPlayer(
   state: GameState,
   side: 'home' | 'away',
 ): Promise<{ instanceUid: string; reason?: string } | null> {
-  const ms = state.matchState;
-  if (!ms || ms.phase !== 'picking') return null;
+  try {
+    const ms = state.matchState;
+    if (!ms || ms.phase !== 'picking') return null;
 
-  const availableUids = side === 'home'
-    ? ms.homeSquad.filter(uid => !ms.homeUsed.includes(uid))
-    : ms.awaySquad.filter(uid => !ms.awayUsed.includes(uid));
-  if (availableUids.length === 0) return null;
+    const availableUids = side === 'home'
+      ? ms.homeSquad.filter(uid => !ms.homeUsed.includes(uid))
+      : ms.awaySquad.filter(uid => !ms.awayUsed.includes(uid));
+    if (availableUids.length === 0) return null;
 
-  const playerId = side === 'home' ? ms.homePlayerId : ms.awayPlayerId;
-  if (!state.players[playerId]?.isAI) return null;
+    const playerId = side === 'home' ? ms.homePlayerId : ms.awayPlayerId;
+    if (!state.players[playerId]?.isAI) return null;
 
-  const opponentPickUid = side === 'home' ? ms.awayPick : ms.homePick;
-  const decision = await callLlm<MatchPickDecision>('match_pick', {
-    instruction: '选择本轮出场球员。骰子会在双方选人后随机决定比较属性，目标是最大化本轮和整场胜率。',
-    rules: [
-      '普通球员比较骰子对应六维属性：速度、射门、传球、盘带、防守、身体。',
-      '门将使用 OVR；主队普通球员有 +1 主场加成。',
-      '同一名球员整场只能使用一次；高等级比赛需要保留后续轮次战力。',
-    ],
-    game: buildGameSummary(state, playerId),
-    match: {
-      side,
-      level: ms.level,
-      round: ms.round,
-      maxRounds: ms.maxRounds,
-      score: { home: ms.homeScore, away: ms.awayScore },
-      homeClub: summarizeCell(state, ms.homeClubId),
-      awayClub: summarizeCell(state, ms.awayClubId),
-      opponentAlreadyPicked: opponentPickUid ? summarizeInstance(state, opponentPickUid) : null,
-      availablePlayers: availableUids.map(uid => summarizeInstance(state, uid)).filter(Boolean),
-    },
-  });
+    const opponentPickUid = side === 'home' ? ms.awayPick : ms.homePick;
+    const decision = await callLlm<MatchPickDecision>('match_pick', {
+      instruction: '选择本轮出场球员。骰子会在双方选人后随机决定比较属性，目标是最大化本轮和整场胜率。',
+      rules: [
+        '普通球员比较骰子对应六维属性：速度、射门、传球、盘带、防守、身体。',
+        '门将使用 OVR；主队普通球员有 +1 主场加成。',
+        '同一名球员整场只能使用一次；高等级比赛需要保留后续轮次战力。',
+      ],
+      game: buildGameSummary(state, playerId),
+      match: {
+        side,
+        level: ms.level,
+        round: ms.round,
+        maxRounds: ms.maxRounds,
+        score: { home: ms.homeScore, away: ms.awayScore },
+        homeClub: summarizeCell(state, ms.homeClubId),
+        awayClub: summarizeCell(state, ms.awayClubId),
+        opponentAlreadyPicked: opponentPickUid ? summarizeInstance(state, opponentPickUid) : null,
+        availablePlayers: availableUids.map(uid => summarizeInstance(state, uid)).filter(Boolean),
+      },
+    });
 
-  const instanceUid = decision?.instanceUid;
-  if (instanceUid && availableUids.includes(instanceUid)) {
-    logDecision(state, playerId, `PICK:${instanceUid}`, decision.reason);
-    return { instanceUid, reason: decision.reason };
+    const instanceUid = decision?.instanceUid;
+    if (instanceUid && availableUids.includes(instanceUid)) {
+      logDecision(state, playerId, `PICK:${instanceUid}`, decision.reason);
+      return { instanceUid, reason: decision.reason };
+    }
+  } catch (err) {
+    logFallback(`match_pick:${side}`, err);
   }
   return null;
 }
@@ -287,6 +305,11 @@ async function callGemini<T>(
 function logRequestSuccess(provider: string, model: string, elapsedMs: number) {
   if (process.env.LLM_BOT_DEBUG !== '1') return;
   console.log(`[llm-bot] request ok. provider=${provider}, model=${model}, elapsedMs=${elapsedMs}`);
+}
+
+function logFallback(task: string, err: unknown) {
+  const msg = err instanceof Error ? err.stack || err.message : String(err);
+  console.warn(`[llm-bot] ${task} failed, using local bot fallback. ${msg}`);
 }
 
 function parseJsonObject<T>(content: string): T | null {
